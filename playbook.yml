@@ -1,0 +1,60 @@
+---
+- hosts: all
+  remote_user: vagrant
+  vars:
+    container_count: 3
+    container_name: sergeykipyatkov/testcontainer
+  become: true
+  tasks:
+    - name: Install aptitude
+      apt:
+        name: aptitude
+        state: latest
+      
+    - name: Install required system packages
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-pip
+          - virtualenv
+          - python-setuptools
+        state: latest
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      apt:
+        name: docker-ce
+        state: latest
+
+    - name: Install Docker Module for Python
+      pip:
+        name: docker
+
+    - name: Building Docker Image
+      docker_image:
+        name: "{{ container_name }}"
+        build:
+          path: ..
+          dockerfile: ./dockerfile
+        source: build
+        state: present
+
+    - name: Create containers
+      docker_container:
+        name: "client_{{ item }}"
+        image: "{{ container_name }}"
+        ports: "808{{ item }}:8080"
+        state: started
+      with_sequence: count={{ container_count }}
